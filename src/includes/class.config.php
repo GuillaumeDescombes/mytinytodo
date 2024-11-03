@@ -54,8 +54,16 @@ class Config
         'lang' => array('default'=>'en', 'type'=>'s'),
 
         # Password to protect your tasks from modification,
-        # leave empty that everyone could read/write todolist
         'password' => array('default'=>'', 'type'=>'s'),
+
+        # Username
+        'username' => array('default'=>'', 'type'=>'s'),
+
+        # (internal) login id; main account = '' (which is super admin)
+        'login' => array('default'=>'', 'type'=>'s'),
+
+        # user level. 0 is super admin.
+        "userlevel" => array('default'=>9999, 'type'=>'i'),
 
         # Smart Syntax enabled flag
         'smartsyntax' => array('default'=>1, 'type'=>'i'),
@@ -100,6 +108,8 @@ class Config
     /** @var mixed[] */
     private static $config = array();
 
+    /** @var mixed[] */
+    private static $login = array();
 
     /**
      *
@@ -131,19 +141,51 @@ class Config
      * @return void
      * @throws Exception
      */
-    public static function load()
+    public static function load($login)
     {
         if (self::$noDatabase) {
             return;
         }
-        $j = self::requestDefaultDomain();
+        if ($login=='') $j = self::requestDefaultDomain();
+        else $j = self::requestDefaultDomainLogin($login);
         foreach ($j as $key=>$val) {
             // Ignore params for database config
             if ( !isset(self::$dbparams[$key]) ) {
                 self::$config[$key] = $val;
             }
         }
+        if (!isset(self::$config['login'])) self::$config['login'] = $login; //compatibility
+        if (!isset(self::$config['userlevel'])) {
+            if (self::$config['login'] == '') self::$config['userlevel']=0; // superadmin
+            else self::$config['userlevel']=100; //standard user
+        }
     }
+
+    /**
+     *
+     * @return void
+     * @throws Exception
+     */
+    public static function loadLogin()
+    {
+        if (self::$noDatabase) {
+            return;
+        }
+        self::$login=array();
+        $db = DBConnection::instance();
+        $q = $db->dq("SELECT param_key, param_value FROM {$db->prefix}settings WHERE param_key LIKE ?", array("config%.json") );
+        while ($r = $q->fetchAssoc()) {
+            $j = json_decode($r['param_value'], true, 100, JSON_INVALID_UTF8_SUBSTITUTE);
+            if ($j !== null) {
+                if (!isset($j['login'])) { //compatibility
+                  $j['login']='';
+                  $j['username']='';
+                }
+                self::$login[]=array('login' => $j['login'], 'username' => $j['username'], 'config' => $r['param_key']);
+            }
+        }
+    }
+
 
     /**
      *
@@ -156,6 +198,43 @@ class Config
         elseif (isset(self::$params[$key])) return self::$params[$key]['default'];
         elseif (isset(self::$dbparams[$key])) return self::$dbparams[$key]['default'];
         else return null;
+    }
+
+    /**
+     *
+     * @param string $username
+     * @return mixed
+     */
+    public static function getLoginFromUsername($username)
+    {
+        if (self::$noDatabase) {
+            return array('login' => '', 'username' => 'default', config => 'config.json');
+        }
+        foreach (self::$login as $key=>$val) {
+            if (strtoupper($val['username']) == strtoupper($username))  {
+                return $val;
+            }
+        }
+        return null;
+    }
+
+
+    /**
+     *
+     * @param string $login
+     * @return mixed
+     */
+    public static function getLogin($login)
+    {
+        if (self::$noDatabase) {
+            return array('login' => '', 'username' => 'default', config => 'config.json');
+        }
+        foreach (self::$login as $key=>$val) {
+            if ($val['login'] == $login)  {
+                return $val;
+            }
+        }
+        return null;
     }
 
     /**
@@ -214,7 +293,10 @@ class Config
 
             $j[$param] = $val;
         }
-        self::saveDomain('config.json', $j);
+        $l=self::getLogin(self::$config['login']);
+        if ($l !== null) $domain=$l['config'];
+        else $domain='config.json';
+        self::saveDomain($domain, $j);
     }
 
     /**
@@ -233,6 +315,7 @@ class Config
             error_log("MTT Error: Failed to decode JSON object with settings. Code: ". (int)json_last_error());
             return array();
         }
+        $j['config']=$key;
         return $j;
     }
 
@@ -247,6 +330,17 @@ class Config
         return self::requestDomain('config.json');
     }
 
+    /**
+     *
+     * @return array
+     * @throws Exception
+     */
+    public static function requestDefaultDomainLogin(string $login): array
+    {
+        $domain=self::getLogin($login);
+        if ($domain !== null) return self::requestDomain($domain['config']);
+        else return self::requestDefaultDomain();
+    }
 
     /**
      *
@@ -257,6 +351,7 @@ class Config
      */
     public static function saveDomain($key, $array)
     {
+        if (isset($array['config'])) unset($array['config']);
         $json = json_encode($array, JSON_PRETTY_PRINT /*| JSON_INVALID_UTF8_SUBSTITUTE*/);
         if ($json === false) {
             throw new Exception("Failed to create JSON object with settings. Code: ". (int)json_last_error());

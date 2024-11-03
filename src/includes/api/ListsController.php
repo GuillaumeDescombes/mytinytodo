@@ -19,21 +19,24 @@ class ListsController extends ApiController {
         check_token();
         $t = array();
         $t['total'] = 0;
-        $haveWriteAccess = haveWriteAccess();
-        if (!$haveWriteAccess) {
+        $p = array();
+        $login = Config::get('login');
+        if (is_readonly()) {
             $sqlWhere = 'WHERE published=1';
         }
         else {
-            $sqlWhere = '';
+            $sqlWhere = 'WHERE login=?';
+            $p[]=$login;
             $t['list'][] = $this->prepareAllTasksList(); // show alltasks lists only for authorized user
             $t['total'] = 1;
         }
         $t['time'] = time();
-        $q = $db->dq("SELECT * FROM {$db->prefix}lists $sqlWhere ORDER BY ow ASC, id ASC");
+        $sql="SELECT * FROM {$db->prefix}lists $sqlWhere ORDER BY ow ASC, id ASC";
+        $q = $db->dq($sql, $p);
         while ($r = $q->fetchAssoc())
         {
             $t['total']++;
-            $t['list'][] = $this->prepareList($r, $haveWriteAccess);
+            $t['list'][] = $this->prepareList($r, !is_readonly());
         }
         $this->response->data = $t;
     }
@@ -47,12 +50,12 @@ class ListsController extends ApiController {
      */
     function post()
     {
-        checkWriteAccess();
+        checkGlobalWriteAccess();
         $action = $this->req->jsonBody['action'] ?? '';
         switch ($action) {
-            case 'order': $this->response->data = $this->changeListOrder(); break; //compatibility
+            case 'order': $this->response->data = $this->changeListOrder(); break; //compatibility; Write access checked in SQL request
             case 'new':
-            default:      $this->response->data = $this->createList();
+            default:      $this->response->data = $this->createList(); //Write access checked in method
         }
     }
 
@@ -63,10 +66,10 @@ class ListsController extends ApiController {
      */
     function put()
     {
-        checkWriteAccess();
+        checkGlobalWriteAccess();
         $action = $this->req->jsonBody['action'] ?? '';
         switch ($action) {
-            case 'order': $this->response->data = $this->changeListOrder(); break;
+            case 'order': $this->response->data = $this->changeListOrder(); break; //Write access checked in SQL request
             default:      $this->response->data = ['total' => 0]; // error 400 ?
         }
     }
@@ -82,6 +85,7 @@ class ListsController extends ApiController {
      */
     function getId($id)
     {
+        $id = (int)$id;
         checkReadAccess($id);
         $db = DBConnection::instance();
         $r = $db->sqa( "SELECT * FROM {$db->prefix}lists WHERE id=?", array($id) );
@@ -89,7 +93,7 @@ class ListsController extends ApiController {
             $this->response->data = null;
             return;
         }
-        $t = $this->prepareList($r, haveWriteAccess());
+        $t = $this->prepareList($r, !is_readonly());
         $this->response->data = $t;
     }
 
@@ -101,7 +105,8 @@ class ListsController extends ApiController {
      */
     function deleteId($id)
     {
-        checkWriteAccess();
+        $id = (int)$id;
+        checkWriteAccess($id);
         $this->response->data = $this->deleteList($id);
     }
 
@@ -115,8 +120,8 @@ class ListsController extends ApiController {
      */
     function putId($id)
     {
-        checkWriteAccess();
         $id = (int)$id;
+        checkWriteAccess($id);
 
         $action = $this->req->jsonBody['action'] ?? '';
         switch ($action) {
@@ -197,7 +202,8 @@ class ListsController extends ApiController {
     {
         $t = array();
         $t['total'] = 0;
-        $id = DBCore::default()->createListWithName($this->req->jsonBody['name'] ?? '');
+        $login = Config::get('login');
+        $id = DBCore::default()->createListWithName($this->req->jsonBody['name'] ?? '', $login);
         if (!$id) {
             return $t;
         }
@@ -361,8 +367,8 @@ class ListsController extends ApiController {
             $setCase .= "WHEN id=$id THEN $ow\n";
         }
         $ids = implode(',', $a);
-        $db->dq("UPDATE {$db->prefix}lists SET d_edited=?, ow = CASE\n $setCase END WHERE id IN ($ids)",
-                    array(time()) );
+        $db->dq("UPDATE {$db->prefix}lists SET d_edited=?, ow = CASE\n $setCase END WHERE id IN ($ids) AND login=?",
+                    array(time(), Config::get('login')) );
         $t['total'] = 1;
         return $t;
     }

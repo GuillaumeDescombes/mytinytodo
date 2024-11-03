@@ -103,10 +103,10 @@ abstract class MTTExtension
             && is_array($meta) )
         {
             // check mandatory keys
-            if (!isset($meta['bundleId']) || !isset($meta['name']) || !isset($meta['version']) || !isset($meta['description'])) {
+            if ( !isset($meta['bundleId']) || !isset($meta['name']) || !isset($meta['version']) || !isset($meta['description']) || !isset($meta['reqUserlevel']) ) {
                 return null;
             }
-            if (!is_string($meta['bundleId']) || !is_string($meta['name']) || !is_string($meta['version']) || !is_string($meta['description'])) {
+            if ( !is_string($meta['bundleId']) || !is_string($meta['name']) || !is_string($meta['version']) || !is_string($meta['description']) || !is_int($meta['reqUserlevel']) ) {
                 return null;
             }
             return $meta;
@@ -148,32 +148,31 @@ class MTTExtensionLoader
 {
     private static $exts = [];
 
-    /**
-     *
-     * @throws Exception
-     */
-    public static function loadExtension(string $ext): bool
+    public static function loadExtension(string $ext)
     {
+        if (Config::get('login')!='') {
+            error_log("Extension '$ext' is only supported for default user");
+            return;
+        }
         if (isset(self::$exts[$ext])) {
             error_log("Extension '$ext' is already registered");
-            return false;
+            return;
         }
 
         $loader = MTT_EXT. $ext. '/loader.php';
         if (!file_exists($loader)) {
             error_log("Failed to init extension '$ext': no loader.php");
-            return false;
+            return;
         }
 
         require_once(MTT_EXT. $ext. '/loader.php');
-        $extNormalized = str_replace('-', '_', $ext);
-        $instanceFunc = 'mtt_ext_'. $extNormalized. '_instance';
+        $getInstance = 'mtt_ext_'. $ext. '_instance';
 
-        if (!function_exists($instanceFunc)) {
-            throw new Exception("Failed to init extension '$ext': no '$instanceFunc' function");
+        if (!function_exists($getInstance)) {
+            throw new Exception("Failed to init extension '$ext': no '$getInstance' function");
         }
 
-        $instance = $instanceFunc();
+        $instance = $getInstance();
         if ( ! ($instance instanceof MTTExtension) ) {
             throw new Exception("Failed to init extension '$ext': incompatible instance");
         }
@@ -186,12 +185,17 @@ class MTTExtensionLoader
             throw new Exception("Failed to load extension '$ext': bundleId does not conforms to extension dir");
         }
 
+        //check reqUserlevel
+        $meta=MTTExtension::extMetaInfo($ext);
+        if ($meta['reqUserlevel'] < Config::get('userlevel')) {
+           error_log("Extension '$ext' is not supported for this user (userlevel: ".Config::get('userlevel').")");
+           return;
+        }
+
         Lang::instance()->loadExtensionLang($ext);
 
         $instance->init();
         self::$exts[$ext] = $instance;
-
-        return true;
     }
 
     /**
@@ -223,6 +227,11 @@ class MTTExtensionLoader
             $meta = MTTExtension::extMetaInfo($ext);
             if (!$meta) {
                 continue;
+            }
+
+            //check reqUserlevel
+            if ($meta['reqUserlevel'] < Config::get('userlevel')) {
+               continue;
             }
 
             if ( $lang->langCode() != 'en'

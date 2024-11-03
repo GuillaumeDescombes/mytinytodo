@@ -33,6 +33,8 @@ if(isset($_POST['save']))
     if (isset($_POST['password']) && $_POST['password'] != '') Config::set('password', passwordHash($_POST['password'])) ;
     elseif (!_post('allowpassword')) Config::set('password', '');
 
+    Config::set('username', _post('username'));
+
     Config::set('smartsyntax', (int)_post('smartsyntax'));
     // Do not set invalid timezone
     try {
@@ -262,13 +264,30 @@ header('Content-type:text/html; charset=utf-8');
 <div class="tr">
 <div class="th"><?php _e('set_protection');?>:</div>
 <div class="td">
- <label><input type="radio" name="allowpassword" value="1" <?php if(_c('password')!='') echo 'checked="checked"'; ?> onclick='$(this.form).find("input[name=password]").attr("disabled",false)' /> <?php _e('set_enabled');?></label> <br/>
- <label><input type="radio" name="allowpassword" value="0" <?php if(_c('password')=='') echo 'checked="checked"'; ?> onclick='$(this.form).find("input[name=password]").attr("disabled","disabled")' /> <?php _e('set_disabled');?></label> <br/>
+ <label><input type="radio" name="allowpassword" value="1" <?php if(_c('password')!='') echo 'checked="checked"'; ?> 
+               onclick='$(this.form).find("input[name=password]").attr("disabled",false)' /> <?php _e('set_enabled');?></label> <br/>
+ <label><input type="radio" name="allowpassword" value="0" <?php if(_c('password')=='') echo 'checked="checked"'; ?> 
+               onclick='$(this.form).find("input[name=password]").attr("disabled","disabled")' /> <?php _e('set_disabled');?></label> <br/>
 </div></div>
+
+<div class="tr">
+<div class="th"><?php _e('set_newlogin');?>: <div class="descr"><?php _e('set_newlogin_descr');?></div></div>
+<div class="td"><input name="login" value="<?php if (_c('login')!='') echo _c('login'); else _e('default');?>" disabled/> </div>
+</div>
+
+<div class="tr">
+<div class="th"><?php _e('set_username');?>: <div class="descr"><?php _e('set_username_descr');?></div></div>
+<div class="td"><input name="username" autocomplete="username" value="<?php echo _c('username');?>" /> </div>
+</div>
 
 <div class="tr">
 <div class="th"><?php _e('set_newpass');?>: <div class="descr"><?php _e('set_newpass_descr');?></div></div>
 <div class="td"><input type="password" name="password" autocomplete="new-password" <?php if(_c('password')=='') echo "disabled"; ?> /> </div>
+</div>
+
+<div class="tr">
+<div class="th"><?php _e('set_userlevel');?>: <div class="descr"><?php _e('set_userlevel_descr');?></div></div>
+<div class="td"><input name="userlevel" value="<?php echo _c('userlevel');?>" disabled/> </div>
 </div>
 
 <div class="tr">

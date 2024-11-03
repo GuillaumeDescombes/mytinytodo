@@ -97,3 +97,8 @@
     --svg-select: var(--svg-select-dark);
 
 }
+
+
+.mtt-settings-table input:disabled {
+   background-color: black;
+}

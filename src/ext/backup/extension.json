@@ -2,5 +2,6 @@
     "bundleId": "backup",
     "name": "Backup",
     "version": "1.0",
-    "description": "Backup"
+    "description": "Backup",
+    "reqUserlevel": 0
 }

@@ -26,7 +26,7 @@ class Check
             $msg[] = "Tasks without list: $count";
         }
 
-        // Tag without task (not a broblem)
+        // Tag without task (not a problem)
         $count = $db->sq("SELECT COUNT(*) FROM {$db->prefix}tags WHERE id NOT IN (SELECT tag_id FROM {$db->prefix}tag2task)");
         if ($count) {
             $msg[] = "Tags without task: $count";
@@ -89,7 +89,7 @@ class Check
         $count = (int)$db->sq("SELECT COUNT(*) FROM {$db->prefix}todolist WHERE list_id NOT IN (SELECT id FROM {$db->prefix}lists)");
         if ($count > 0) {
             // Move to new list
-            $listID = \DBCore::default()->createListWithName("Restored tasks");
+            $listID = \DBCore::default()->createListWithName("Restored tasks", Config::get('login'));
             $db->ex("UPDATE {$db->prefix}todolist SET list_id=? WHERE list_id NOT IN (SELECT id FROM {$db->prefix}lists)", [$listID]);
         }
 

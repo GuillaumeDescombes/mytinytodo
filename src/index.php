@@ -49,7 +49,7 @@ function parseRoute($queryString)
         redirectWithHashRoute($hash, $q);
     }
     else if (isset($q['task'])) {
-        $listId = (int)DBCore::default()->getListIdByTaskId((int)$q['task']);
+        $listId = (int)DBCore::default()->getListIdByTaskId((int)$q['task'], Config::get('login'));
         if ($listId > 0) {
             $h = [ 'list', $listId, 'search', '#'. (int)$q['task']];
             redirectWithHashRoute($h);
@@ -80,13 +80,14 @@ function js_options()
     }
     $a = array(
         "token" => htmlspecialchars(access_token()),
-        "title" => get_unsafe_mttinfo('title'),
+        "title" => is_logged() ? get_unsafe_mttinfo('title') : __("public_tasks",true),
         "lang" => Lang::instance()->jsStrings(),
         "mttUrl" => get_mttinfo('mtt_uri'),
         "homeUrl" => $homeUrl,
         "apiUrl" => get_mttinfo('api_url'),
         "needAuth" => need_auth() ? true : false,
         "isLogged" => is_logged() ? true : false,
+        "login" => Config::get('login'),
         "showdate" => Config::get('showdate') ? true : false,
         "showtime" => Config::get('showtime') ? true : false,
         "showdateInline" => Config::get('showdateInline') ? true : false,

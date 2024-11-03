@@ -20,18 +20,18 @@ class TasksController extends ApiController {
     function get()
     {
         $listId = (int)_get('list');
-        checkReadAccess($listId);
         $db = DBConnection::instance();
         $dbcore = DBCore::default();
 
         $sqlWhere = $sqlWhereListId = '';
         $userLists = [];
         if ($listId == -1) {
-            $userLists = $this->getUserListsSimple();
+            $userLists = $this->getUserListsSimple(); //ReadAccess check in the method
             $userListsIds = implode(',', array_keys($userLists));
             $sqlWhereListId = "todo.list_id IN ($userListsIds) ";
         }
         else {
+            checkReadAccess($listId);
             $sqlWhereListId = "todo.list_id=". $listId;
         }
         if (_get('compl') == 0) {
@@ -148,8 +148,8 @@ class TasksController extends ApiController {
     {
         $action = $this->req->jsonBody['action'] ?? '';
         if ($action == 'order') { //compatibility
-            checkWriteAccess();
-            $this->response->data = $this->changeTaskOrder();
+            checkGlobalWriteAccess();
+            $this->response->data = $this->changeTaskOrder(); //WriteAccess in SQL request
         }
         else {
             $listId = (int)($this->req->jsonBody['list'] ?? 0);
@@ -170,10 +170,10 @@ class TasksController extends ApiController {
      */
     function put()
     {
-        checkWriteAccess();
+        checkGlobalWriteAccess();
         $action = $this->req->jsonBody['action'] ?? '';
         switch ($action) {
-            case 'order': $this->response->data = $this->changeTaskOrder(); break;
+            case 'order': $this->response->data = $this->changeTaskOrder(); break; //WriteAccess in SQL request
             default:      $this->response->data = ['total' => 0]; // error 400 ?
         }
     }
@@ -187,8 +187,10 @@ class TasksController extends ApiController {
      */
     function deleteId($id)
     {
-        checkWriteAccess();
-        $this->response->data = $this->deleteTask((int)$id);
+        $id = (int)$id;
+        $listId=DBCore::default()->getListIdByTaskId($id, Config::get('login'));
+        checkWriteAccess($listId);
+        $this->response->data = $this->deleteTask($id);
     }
 
     /**
@@ -199,10 +201,10 @@ class TasksController extends ApiController {
      */
     function putId($id)
     {
-        checkWriteAccess();
         $id = (int)$id;
-
-        if (!DBCore::default()->taskExists($id)) {
+        $listId=DBCore::default()->getListIdByTaskId($id, Config::get('login'));
+        checkWriteAccess($listId);
+        if (!DBCore::default()->taskExists($id, Config::get('login'))) {
             $this->response->data = ['total' => 0];
             return;
         }
@@ -227,7 +229,7 @@ class TasksController extends ApiController {
      */
     function postTitleParse()
     {
-        checkWriteAccess();
+        checkGlobalWriteAccess();
         $t = array(
             'title' => trim( $this->req->jsonBody['title'] ?? '' ),
             'prio' => 0,
@@ -250,11 +252,12 @@ class TasksController extends ApiController {
 
     function postNewCounter()
     {
-        checkReadAccess();
+        $list = (int) ($this->req->jsonBody['list'] ?? 0);
+        checkReadAccess($list);
         $lists = $this->req->jsonBody['lists'] ?? [];
         if (!is_array($lists)) $lists = [];
         $userLists = []; // [string]
-        if (!haveWriteAccess()) {
+        if (is_readonly()) {
             $userLists = $this->getUserListsSimple(true);
             if ($userLists) {
                 $sqlWhereList = "AND list_id IN (". implode(',', $userLists). ")";
@@ -266,6 +269,7 @@ class TasksController extends ApiController {
         }
         $sqlWhereList = [];
         foreach ($lists as $item) {
+            checkReadAccess($item['listId']);
             $later = (int) ($item['later'] ?? 0);
             $sqlWhereList[] = "(list_id = ". (int)$item['listId']. " AND compl=0 AND d_created > $later)";
         }
@@ -286,7 +290,6 @@ class TasksController extends ApiController {
         }
 
         $b = [];
-        $list = (int) ($this->req->jsonBody['list'] ?? 0);
         $later = (int) ($this->req->jsonBody['later'] ?? 0);
         if ($list > 0 && $later > 0 && (!$userLists || in_array((string)$list, $userLists))) {
             $q = $db->dq("SELECT id FROM {$db->prefix}todolist
@@ -542,7 +545,7 @@ class TasksController extends ApiController {
             foreach ($ad as $diff=>$ids) {
                 if ($diff >=0) $set = "ow=ow+".$diff;
                 else $set = "ow=ow-".abs($diff);
-                $db->dq("UPDATE {$db->prefix}todolist SET $set,d_edited=? WHERE id IN (".implode(',',$ids).")", array(time()) );
+                $db->dq("UPDATE {$db->prefix}todolist SET $set,d_edited=? WHERE id IN (".implode(',',$ids).") AND login=?", array(time(), Config::get('login')) );
             }
             $db->ex("COMMIT");
             $t['total'] = 1;
@@ -577,11 +580,15 @@ class TasksController extends ApiController {
     {
         $db = DBConnection::instance();
         $sqlWhere = '';
+        $p=array();
         if ($readOnly) {
             $sqlWhere = "WHERE published=1";
+        } else {
+            $sqlWhere = "WHERE login=?";
+            $p[]=Config::get('login');
         }
         $a = array();
-        $q = $db->dq("SELECT id,name FROM {$db->prefix}lists $sqlWhere ORDER BY id ASC");
+        $q = $db->dq("SELECT id,name FROM {$db->prefix}lists $sqlWhere ORDER BY id ASC", $p);
         while($r = $q->fetchRow()) {
             $a[ (string)$r[0] ] = (string)$r[1];
         }
@@ -590,7 +597,7 @@ class TasksController extends ApiController {
 
     private function getTaskRowById(int $id): ?array
     {
-        $r = DBCore::default()->getTaskById($id);
+        $r = DBCore::default()->getTaskById($id, Config::get('login'));
         if (!$r) {
             throw new Exception("Failed to fetch task data");
         }

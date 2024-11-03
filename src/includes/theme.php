@@ -7,7 +7,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <title><?php mttinfo('title'); ?></title>
+  <title><?php if (is_logged()) mttinfo('title'); else _e('public_tasks'); ?></title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/gif" href="<?php mttinfo('theme_url'); ?>images/logo.gif">
   <link rel="stylesheet" type="text/css" href="<?php mttinfo('theme_url'); ?>style.css?v=<?php filever('theme', 'style.css'); ?>" media="all">
@@ -44,14 +44,14 @@ $().ready(function(){
 <div class="topblock">
 
   <div class="topblock-title">
-    <h2><?php mttinfo('title'); ?></h2>
+    <h2><?php if (is_logged()) mttinfo('title'); else _e('public_tasks'); ?></h2>
   </div>
 
   <div class="topblock-bar">
   <div id="msg"><span class="msg-text"></span><div class="msg-details"></div></div>
   <div class="bar-menu">
     <a href="#settings" class="mtt-only-authorized" data-settings-link="index"><?php _e('a_settings');?></a>
-    <span id="bar_public" style="display:none" class="mtt-need-auth-enabled"><?php _e('public_tasks');?></span>
+    <!-- <span id="bar_public" style="display:none" class="mtt-need-auth-enabled"><?php _e('public_tasks');?></span> -->
     <a href="#login" id="login_btn" class="mtt-need-auth-enabled"><?php _e('a_login');?></a>
     <a href="#logout" id="logout_btn" class="mtt-need-auth-enabled" style="display:none" ><?php _e('a_logout');?></a>
     </span>
@@ -222,8 +222,8 @@ $().ready(function(){
   <div id="authform">
   <form id="login_form">
     <div class="auth-content">
-      <div class="h"><?php _e('password');?></div>
-      <div><input type="password" name="password" id="password" class="form-input"></div>
+      <div class="h"><?php _e('username');?><input name="username" id="username" class="form-input"></div>
+      <div class="h"><?php _e('password');?><input type="password" name="password" id="password" class="form-input"></div>
     </div>
     <div class="form-bottom-buttons">
         <button type="submit"><?php _e('btn_login'); ?></button>
@@ -343,7 +343,10 @@ $().ready(function(){
 
 <div id="footer">
   <div id="footer_content">
-    <span><?php _e('powered_by');?> <a href="http://www.mytinytodo.net/" class="powered-by-link">myTinyTodo</a>&nbsp;<?php mttinfo('version'); ?></span>
+    <span><?php _e('powered_by');?> <a href="http://www.mytinytodo.net/" class="powered-by-link">myTinyTodo</a>&nbsp;<?php mttinfo('version'); ?> 
+          - <?php _e('modified_by');?> <a href="http://www.descombes.name/" class="powered-by-link">Guillaume Descombes</a>
+          (<?php mttinfo('versionDate'); ?>)
+    </span>
     <?php do_action('theme_footer_content_end'); ?>
   </div>
 </div>

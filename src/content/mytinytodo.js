@@ -63,6 +63,7 @@ var mytinytodo = window.mytinytodo = _mtt = {
     options: {
         token: '',
         title: '',
+        login: '',
         openList: 0,
         autotag: false,
         instantSearch: true,
@@ -1040,7 +1041,8 @@ var mytinytodo = window.mytinytodo = _mtt = {
     {
         list = list || curList;
         if (list === undefined) return '';
-        return _mtt.mttUrl + 'feed.php?list=' + list.id;
+        if (this.options.login != '') return _mtt.mttUrl + 'feed.php?login=' + this.options.login+ '&list=' + list.id;
+        else return _mtt.mttUrl + 'feed.php?list=' + list.id;
     },
 
     urlForSettings: function(json = 0)
@@ -2862,12 +2864,14 @@ function showLogin()
         return false;
     }
     _mtt.pageSet('login', '');
-    $('#password').val('').focus();
+    $('#password').val('');
+    $('#username').focus();
 }
 
 function doAuth(form)
 {
-    _mtt.db.request( 'login', { password: form.password.value }, function(json) {
+    _mtt.db.request( 'login', { username: form.username.value, 
+                                password: form.password.value }, function(json) {
         form.password.value = '';
         if(json.logged)
         {

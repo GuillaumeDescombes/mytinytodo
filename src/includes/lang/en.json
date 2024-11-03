@@ -34,6 +34,7 @@
     "save": "Save",
     "cancel": "Cancel",
     "close": "Close",
+    "username": "Username",
     "password": "Password",
     "btn_login": "Login",
     "a_login": "Login",
@@ -162,6 +163,13 @@
     "set_protection": "Password protection",
     "set_enabled": "Enabled",
     "set_disabled": "Disabled",
+    "set_newlogin": "Login",
+    "set_newlogin_descr": "read only",
+    "default": "default",
+    "set_userlevel": "User security level",
+    "set_userlevel_descr": "read only. 0 is super admin; 100 is standard user.",
+    "set_username": "Username",
+    "set_username_descr": "",
     "set_newpass": "New password",
     "set_newpass_descr": "Leave blank if won't change current password.",
     "set_smartsyntax": "Smart syntax",
@@ -209,5 +217,6 @@
     "renameList": "Rename list",
     "deleteList": "This will delete current list with all tasks in it.\nAre you sure?",
     "clearCompleted": "This will delete all completed tasks in the list.\nAre you sure?",
-    "settingsSaved": "Settings saved. Reloading..."
+    "settingsSaved": "Settings saved. Reloading...",
+    "modified_by": "modified by"
 }

@@ -105,7 +105,7 @@ foreach ($endpoints as $search => $methods) {
         if ($isExtMethod) {
             if (false == ($classDescr[2] ?? false)) { //TODO: describe $classDescr[2]
                 // By default all extension methods require write access rights
-                checkWriteAccess();
+                checkGlobalWriteAccess();
             }
         }
         $param = null;
@@ -190,20 +190,23 @@ function myExceptionHandler(Throwable $e)
     exit;
 }
 
-function checkReadAccess(?int $listId = null)
+function haveReadAccess(int $listId) : bool
+{
+    $db = DBConnection::instance();
+    $count = $db->sq("SELECT COUNT(*) FROM {$db->prefix}lists WHERE id=? AND (published=1 OR login = ?)", array($listId, Config::get('login')));
+    if (!$count) return false;
+    return true;
+
+}
+
+function checkReadAccess(int $listId)
 {
     check_token();
-    $db = DBConnection::instance();
-    if (is_logged()) return true;
-    if ($listId !== null)
-    {
-        $id = $db->sq("SELECT id FROM {$db->prefix}lists WHERE id=? AND published=1", array($listId));
-        if ($id) return;
-    }
+    if (haveReadAccess($listId)) return;
     jsonExit( array('total'=>0, 'list'=>array(), 'denied'=>1) );
 }
 
-function checkWriteAccess(?int $listId = null)
+function checkWriteAccess(int $listId)
 {
     check_token();
     if (haveWriteAccess($listId)) return;
@@ -211,16 +214,23 @@ function checkWriteAccess(?int $listId = null)
     jsonExit( array('total'=>0, 'list'=>array(), 'denied'=>1) );
 }
 
-function haveWriteAccess(?int $listId = null) : bool
+function checkGlobalWriteAccess() //do not check the listId
+{
+    check_token();
+    if (!is_readonly()) return;
+    http_response_code(403);
+    jsonExit( array('total'=>0, 'list'=>array(), 'denied'=>1) );
+}
+
+function haveWriteAccess(int $listId) : bool
 {
     if (is_readonly()) {
         return false;
     }
-    // check list exist
-    if ($listId !== null && $listId != -1)
-    {
+    // check list exist for the login
+    if ($listId != -1) {
         $db = DBConnection::instance();
-        $count = $db->sq("SELECT COUNT(*) FROM {$db->prefix}lists WHERE id=?", array($listId));
+        $count = $db->sq("SELECT COUNT(*) FROM {$db->prefix}lists WHERE id=? AND login=?", array($listId, Config::get('login')));
         if (!$count) return false;
     }
     return true;

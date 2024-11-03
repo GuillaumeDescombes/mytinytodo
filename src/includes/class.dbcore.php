@@ -67,31 +67,35 @@ class DBCore
      * @param int $id
      * @return int
      */
-    public function getListIdByTaskId(int $id): int
+    public function getListIdByTaskId(int $id, string $login): int
     {
         $db = $this->db;
-        $listId = (int)$db->sq("SELECT list_id FROM {$db->prefix}todolist WHERE id=". (int)$id);
+        $sql = "SELECT {$db->prefix}todolist.list_id FROM {$db->prefix}todolist, {$db->prefix}lists ".
+               "WHERE {$db->prefix}todolist.id=? AND {$db->prefix}lists.id={$db->prefix}todolist.list_id AND {$db->prefix}lists.login=?";
+        $listId = (int)$db->sq($sql, array($id, $login));
         return $listId;
     }
 
 
-    public function getListById(int $id): ?array
+    public function getListById(int $id, string $login): ?array
     {
         $db = $this->db;
-        $r = $db->sqa("SELECT * FROM {$db->prefix}lists WHERE id=?", [$id]);
+        $r = $db->sqa("SELECT * FROM {$db->prefix}lists WHERE id=? AND login=?", array($id, $login));
         return $r;
     }
 
 
-    public function taskExists(int $id): bool
+    public function taskExists(int $id, string $login): bool
     {
         $db = $this->db;
-        $count = (int) $db->sq("SELECT COUNT(*) FROM {$db->prefix}todolist WHERE id = $id");
+        $sql = "SELECT COUNT({$db->prefix}todolist.id) FROM {$db->prefix}todolist, {$db->prefix}lists ".
+               "WHERE {$db->prefix}todolist.id=? AND {$db->prefix}lists.id={$db->prefix}todolist.list_id AND {$db->prefix}lists.login=?";
+        $count = (int) $db->sq($sql, array($id, $login));
         return ($count > 0) ? true : false;
     }
 
 
-    public function getTaskById(int $id): ?array
+    public function getTaskById(int $id, string $login): ?array
     {
         $db = $this->db;
         $groupConcat = '';
@@ -101,14 +105,12 @@ class DBCore
         else {
             $groupConcat = "GROUP_CONCAT(tags.id) AS tags_ids, GROUP_CONCAT(tags.name) AS tags";
         }
-        $r = $db->sqa("
-            SELECT todo.*, $groupConcat
-            FROM {$db->prefix}todolist AS todo
-            LEFT JOIN {$db->prefix}tag2task AS t2t ON todo.id = t2t.task_id
-            LEFT JOIN {$db->prefix}tags AS tags ON t2t.tag_id = tags.id
-            WHERE todo.id = $id
-            GROUP BY todo.id
-        ");
+        $sql = "SELECT todo.*, $groupConcat FROM {$db->prefix}todolist AS todo, {$db->prefix}lists AS l ".
+               "LEFT JOIN {$db->prefix}tag2task AS t2t ON todo.id = t2t.task_id ".
+               "LEFT JOIN {$db->prefix}tags AS tags ON t2t.tag_id = tags.id ".
+               "WHERE todo.id = ? AND l.id=todo.list_id AND l.login=? ".
+               "GROUP BY todo.id";
+        $r = $db->sqa($sql, array($id, $login));
         return $r;
     }
 
@@ -120,7 +122,7 @@ class DBCore
      * @param null|int $limit
      * @return array
      */
-    public function getTasksByListId(int $listId, string $sqlWhere, /* int|string */ $sort, ?int $limit = null): array
+    public function getTasksByListId(int $listId, string $login, string $sqlWhere, /* int|string */ $sort, ?int $limit = null): array
     {
         $db = $this->db;
 
@@ -154,16 +156,15 @@ class DBCore
             $sqlLimit = "LIMIT $limit";
         }
 
-        $q = $db->dq("
-            SELECT todo.*, todo.duedate IS NULL AS ddn, GROUP_CONCAT(tags.id) AS tags_ids, GROUP_CONCAT(tags.name) AS tags
-            FROM {$db->prefix}todolist AS todo
-            LEFT JOIN {$db->prefix}tag2task AS t2t ON todo.id = t2t.task_id
-            LEFT JOIN {$db->prefix}tags AS tags ON t2t.tag_id = tags.id
-            WHERE todo.list_id = $listId  $sqlWhere
-            GROUP BY todo.id
-            $sqlSort
-            $sqlLimit
-        ");
+        $sql = "SELECT todo.*, todo.duedate IS NULL AS ddn, GROUP_CONCAT(tags.id) AS tags_ids, GROUP_CONCAT(tags.name) AS tags ".
+               "FROM {$db->prefix}todolist AS todo, {$db->prefix}lists AS l ".
+               "LEFT JOIN {$db->prefix}tag2task AS t2t ON todo.id = t2t.task_id ".
+               "LEFT JOIN {$db->prefix}tags AS tags ON t2t.tag_id = tags.id ".
+               "WHERE todo.list_id = ? AND l.id=todo.list_id AND l.login=? $sqlWhere ".
+               "GROUP BY todo.id ".
+               $sqlSort." ".
+               $sqlLimit;
+        $q = $db->dq($sql, array($listId, $login));
 
         $data = array();
         while ($r = $q->fetchAssoc()) {
@@ -172,17 +173,17 @@ class DBCore
         return $data;
     }
 
-    function createListWithName(string $name): ?int
+    function createListWithName(string $name, string $login): ?int
     {
         $db = DBConnection::instance();
         $name = str_replace( ['"',"'",'<','>','&'], '', trim($name) );
         if ($name == '') {
             return null;
         }
-        $ow = 1 + (int)$db->sq("SELECT MAX(ow) FROM {$db->prefix}lists");
+        $ow = 1 + (int)$db->sq("SELECT MAX(ow) FROM {$db->prefix}lists WHERE login=?", array($login));
         $time = time();
-        $db->dq("INSERT INTO {$db->prefix}lists (uuid,name,ow,d_created,d_edited,taskview) VALUES (?,?,?,?,?,?)",
-                    array(generateUUID(), $name, $ow, $time, $time, 1) );
+        $db->dq("INSERT INTO {$db->prefix}lists (uuid,name,ow,d_created,d_edited,taskview,login) VALUES (?,?,?,?,?,?,?)",
+                    array(generateUUID(), $name, $ow, $time, $time, 1, $login) );
         $id = $db->lastInsertId();
         return (int)$id;
     }

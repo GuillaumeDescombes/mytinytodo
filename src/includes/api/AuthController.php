@@ -26,11 +26,22 @@ class AuthController extends ApiController {
             $t['disabled'] = 1;
             return $t;
         }
+        $username = $this->req->jsonBody['username'] ?? '';
+        $login = Config::getLoginFromUsername($username);
+        if (is_null($login)) {
+          $t['login'] = '';
+          error_log("unknown username '".$username."', IP: ".$_SERVER['REMOTE_ADDR']);
+          return $t;
+        }
         $password = $this->req->jsonBody['password'] ?? '';
+        Config::load($login['login']);
         if ( isPasswordEqualsToHash($password, Config::get('password')) ) {
-            updateSessionLogged(true);
+            updateSessionLogged(true, $login['login']);
             $t['token'] = update_token();
             $t['logged'] = 1;
+            $t['login'] = $login['login'];
+        } else {
+            error_log("wrong password for username '".$username."', IP: ".$_SERVER['REMOTE_ADDR']);
         }
         return $t;
     }
@@ -38,7 +49,7 @@ class AuthController extends ApiController {
     private function logout(): ?array
     {
         check_token();
-        updateSessionLogged(false);
+        updateSessionLogged(false,'');
         update_token();
         session_regenerate_id(true);
         $t = array('logged' => 0);

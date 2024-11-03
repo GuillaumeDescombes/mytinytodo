@@ -44,8 +44,15 @@ require_once(MTTINC. 'filters.php');
 
 configureDbConnection();
 
-Config::load();
+Config::loadLogin();
 
+if (!isset($dontStartSession)) {
+    setup_and_start_session();
+    $login=getSessionLogin();
+}
+else $login=_get('login','');
+
+Config::load($login);
 
 date_default_timezone_set(Config::get('timezone'));
 
@@ -63,9 +70,6 @@ Lang::loadLang( Config::get('lang') );
 
 $_mttinfo = array();
 
-if (need_auth() && !isset($dontStartSession)) {
-    setup_and_start_session();
-}
 set_nocache_headers();
 
 if (!defined('MTT_DISABLE_EXT')) {
@@ -149,7 +153,7 @@ function configureDbConnection()
         require_once(MTTINC. 'class.db.sqlite3.php');
         $db = DBConnection::init(new Database_Sqlite3());
         $db->connect([
-            'filename' => MTTPATH. 'db/todolist.db'
+            'filename' => /*'/var/db-public/todolist.db' */ MTTPATH. 'db/todolist.db'
         ]);
     }
     else {
@@ -171,7 +175,9 @@ function configureDbConnection()
 
 function need_auth(): bool
 {
-    return (Config::get('password') != '') ? true : false;
+    $p = Config::get('password');
+    $l = Config::get('login');
+    return ( ($p != '') || ($l != '') ) ? true : false;
 }
 
 function is_logged(): bool
@@ -179,6 +185,7 @@ function is_logged(): bool
     if ( !need_auth() ) return true;
     if ( !isset($_SESSION['logged']) || !isset($_SESSION['sign']) ) return false;
     if ( !(int)$_SESSION['logged'] ) return false;
+    if (Config::get('password') == '') return true;
     return isValidSignature($_SESSION['sign'], session_id(), Config::get('password'), defined('MTT_SALT') ? MTT_SALT : '');
 }
 
@@ -188,16 +195,26 @@ function is_readonly(): bool
     return false;
 }
 
-function updateSessionLogged(bool $logged)
+function updateSessionLogged(bool $logged, string $login)
 {
     if ($logged) {
         $_SESSION['logged'] = 1;
         $_SESSION['sign'] = idSignature(session_id(), Config::get('password'), defined('MTT_SALT') ? MTT_SALT : '');
+        $_SESSION['login'] = $login;
     }
     else {
         unset($_SESSION['logged']);
         unset($_SESSION['sign']);
+        unset($_SESSION['login']);
     }
+}
+
+function getSessionLogin(): string
+{
+    if (isset($_SESSION['login'])) {
+        return $_SESSION['login'];
+    }
+    return '';
 }
 
 function access_token(): string
@@ -399,6 +416,9 @@ function get_unsafe_mttinfo($v)
         case 'version':
             $_mttinfo['version'] = mytinytodo\Version::VERSION;
             return $_mttinfo['version'];
+        case 'versionDate':
+            $_mttinfo['versionDate'] = timestampToDatetime(filemtime(MTTINC. 'version.php'), true);
+            return $_mttinfo['versionDate'];
         case 'appearance':
             $_mttinfo['appearance'] = Config::get('appearance');
             return $_mttinfo['appearance'];

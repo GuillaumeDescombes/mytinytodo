@@ -9,7 +9,7 @@ class ExtSettingsController extends ApiController {
      */
     function get(string $ext)
     {
-        checkWriteAccess();
+        checkGlobalWriteAccess();
 
         /** @var MTTExtension|MTTExtensionSettingsInterface $instance */
         $instance = $this->extInstance($ext);
@@ -70,7 +70,7 @@ EOD;
      */
     function put(string $ext)
     {
-        checkWriteAccess();
+        checkGlobalWriteAccess();
 
         /** @var MTTExtension|MTTExtensionSettingsInterface $instance */
         $instance = $this->extInstance($ext);

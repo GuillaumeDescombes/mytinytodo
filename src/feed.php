@@ -14,7 +14,7 @@ $lang = Lang::instance();
 
 $listId = (int)_get('list');
 $db = DBConnection::instance();
-$listData = $db->sqa("SELECT * FROM {$db->prefix}lists WHERE id=$listId");
+$listData = $db->sqa("SELECT * FROM {$db->prefix}lists WHERE id=? AND login=?", array($listId, Config::get('login')));
 if ( $listData && need_auth() && !$listData['published'] ) {
     $extra = json_decode($listData['extra'] ?? '', true, 10, JSON_INVALID_UTF8_SUBSTITUTE);
     $feedKey = (string) ($extra['feedKey'] ?? '');
@@ -32,26 +32,26 @@ $feedType = _get('feed');
 
 if($feedType == 'completed') {
     $listData['_feed_descr'] = $lang->get('feed_completed_tasks');
-    fillData( $data, $listId, 'd_completed', 'compl=1' );
+    fillData( $data, $listId, Config::get('login'), 'd_completed', 'compl=1' );
 }
 elseif($feedType == 'modified') {
     $listData['_feed_descr'] = $lang->get('feed_modified_tasks');
-    fillData( $data, $listId, 'd_edited', '' );
+    fillData( $data, $listId, Config::get('login'), 'd_edited', '' );
 }
 elseif($feedType == 'current') {
     $listData['_feed_descr'] = $lang->get('feed_new_tasks');
-    fillData( $data, $listId, 'd_created', 'compl=0' );
+    fillData( $data, $listId, Config::get('login'), 'd_created', 'compl=0' );
 }
 elseif($feedType == 'status') {
     $listData['_feed_descr'] = $lang->get('feed_tasks');
-    fillData( $data, $listId, 'd_created', '' );
-    fillData( $data, $listId, 'd_edited', 'compl=0 AND d_edited > d_created' );
-    fillData( $data, $listId, 'd_completed', 'compl=1' );
+    fillData( $data, $listId, Config::get('login'), 'd_created', '' );
+    fillData( $data, $listId, Config::get('login'), 'd_edited', 'compl=0 AND d_edited > d_created' );
+    fillData( $data, $listId, Config::get('login'), 'd_completed', 'compl=1' );
 }
 else {
     $listData['_feed_descr'] = $lang->get('feed_new_tasks');
     $feedType = 'tasks';
-    fillData( $data, $listId, 'd_created', '' );
+    fillData( $data, $listId, Config::get('login'), 'd_created', '' );
 }
 
 $listData['_feed_title'] = sprintf($lang->get('feed_title'), $listData['name']) . ' - '. $listData['_feed_descr'];
@@ -62,9 +62,9 @@ htmlarray_ref($listData);
 printRss($data, $listData);
 
 
-function fillData(array &$data, int $listId, string $field, string $sqlWhere )
+function fillData(array &$data, int $listId, string $login, string $field, string $sqlWhere )
 {
-    $tasks = DBCore::default()->getTasksByListId($listId, $sqlWhere, "$field DESC", 100);
+    $tasks = DBCore::default()->getTasksByListId($listId, $login, $sqlWhere, "$field DESC", 100);
     $lang = Lang::instance();
     foreach ($tasks as $r)
     {

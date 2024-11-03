@@ -11,7 +11,7 @@ require_once('./init.php');
 
 $listId = (int)_get('list');
 $db = DBConnection::instance();
-$listData = $db->sqa("SELECT * FROM {$db->prefix}lists WHERE id=$listId");
+$listData = $db->sqa("SELECT * FROM {$db->prefix}lists WHERE id=? AND login=?", array($listId, Config::get('login')));
 if ( $listData && !is_logged() && !$listData['published'] ) {
     $extra = json_decode($listData['extra'] ?? '', true, 10, JSON_INVALID_UTF8_SUBSTITUTE);
     $feedKey = (string) ($extra['feedKey'] ?? '');
@@ -24,7 +24,7 @@ if (!$listData) {
     die("No list found.");
 }
 
-$data = DBCore::default()->getTasksByListId($listId, '', (int)$listData['sorting']);
+$data = DBCore::default()->getTasksByListId($listId, Config::get('login'), '', (int)$listData['sorting']);
 
 if (_get('format') == 'ical') {
     printICal($listData, $data);

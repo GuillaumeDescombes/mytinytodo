@@ -1243,6 +1243,9 @@ li.mtt-item-hidden { display:none; }
   background-color: var(--color-input-bg);
   color: var(--color-text-default);
 }
+.mtt-settings-table input:disabled {
+   background-color: lightgray;
+}
 .mtt-settings-table button:disabled {
   background-color: var(--color-btn-hover);
   color: var(--color-text-reduced2);
